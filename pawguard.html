@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PawGuard — Dog Rescue AI</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --navy:#0d1b2a;--navy2:#1b2d3e;--navy3:#0f3460;
+  --accent:#e63946;--accent2:#f4a261;--green:#2a9d8f;
+  --bg:#f0f4f8;--card:#fff;--border:#e2e8f0;
+  --text:#1a1a2e;--muted:#6b7a8d;--light:#f8fafc;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{display:flex;min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{width:230px;background:var(--navy);padding:1.5rem 1rem;position:fixed;height:100vh;overflow-y:auto;z-index:100;display:flex;flex-direction:column}
+.sidebar-logo{display:flex;align-items:center;gap:10px;margin-bottom:1.5rem}
+.sidebar-logo .paw{font-size:1.8rem}
+.sidebar-logo div h2{color:#fff;font-size:1.1rem;font-weight:600;line-height:1}
+.sidebar-logo div p{color:#7a8fa0;font-size:.75rem;margin-top:2px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;cursor:pointer;color:#8fa5b8;font-size:.88rem;margin-bottom:3px;transition:all .18s;border:1px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,.07);color:#dde8f0}
+.nav-item.active{background:var(--navy3);color:#fff;border-color:rgba(255,255,255,.1)}
+.nav-icon{font-size:1rem;width:20px;text-align:center}
+.sidebar hr{border:none;border-top:1px solid #2e3d52;margin:1rem 0}
+.sidebar-section{font-size:.72rem;color:#4a6075;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem;font-weight:600}
+.contact-item{font-size:.78rem;color:#7a8fa0;margin-bottom:5px;line-height:1.4}
+.contact-item b{color:#a0b9cc}
+.sidebar-footer{margin-top:auto;padding-top:1rem;font-size:.72rem;color:#3d5166}
+
+/* CONTENT */
+.content{margin-left:230px;padding:1.5rem;width:calc(100% - 230px);min-height:100vh}
+.header{background:linear-gradient(130deg,#0d1b2a 0%,#0f3460 60%,#16498a 100%);padding:1.6rem 2rem;border-radius:14px;margin-bottom:1.5rem;color:#fff;position:relative;overflow:hidden}
+.header::after{content:'🐾';position:absolute;right:2rem;top:50%;transform:translateY(-50%);font-size:5rem;opacity:.08}
+.header h1{font-size:1.75rem;font-weight:700}
+.header p{color:#a0b4c8;font-size:.92rem;margin-top:5px}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem}
+.stat-card{background:var(--card);border-radius:12px;padding:1.1rem 1.2rem;border:1px solid var(--border);position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;border-radius:4px 0 0 4px}
+.stat-card.red::before{background:var(--accent)}
+.stat-card.orange::before{background:var(--accent2)}
+.stat-card.green::before{background:var(--green)}
+.stat-card.blue::before{background:var(--navy3)}
+.stat-icon{font-size:1.4rem;margin-bottom:.4rem}
+.stat-num{font-size:2rem;font-weight:700;color:var(--navy);line-height:1}
+.stat-lbl{font-size:.78rem;color:var(--muted);margin-top:4px}
+
+/* SECTION */
+.section-title{font-size:.95rem;font-weight:600;color:var(--text);margin-bottom:.8rem;padding-bottom:6px;border-bottom:2px solid var(--border);display:flex;align-items:center;gap:6px}
+
+/* MAP */
+#map{width:100%;height:400px;border-radius:12px;border:1px solid var(--border);z-index:1}
+#map-full{width:100%;height:520px;border-radius:12px;border:1px solid var(--border);z-index:1}
+
+/* PAGES */
+.page{display:none}.page.active{display:block}
+
+/* REPORT FORM */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+.upload-zone{border:2px dashed #c8d6e2;border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all .2s;background:#fafcff;position:relative}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--navy3);background:#f0f6ff}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-zone .upload-icon{font-size:3rem;margin-bottom:.5rem}
+.upload-zone .upload-text{font-weight:500;color:var(--navy);margin-bottom:4px}
+.upload-zone .upload-sub{font-size:.82rem;color:var(--muted)}
+.preview-img{width:100%;border-radius:10px;max-height:220px;object-fit:cover;margin-bottom:.8rem}
+.form-row{margin-bottom:.85rem}
+.form-row label{display:block;font-size:.82rem;font-weight:500;color:#374151;margin-bottom:4px}
+.form-row input,.form-row textarea,.form-row select{width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:.88rem;outline:none;transition:border .18s;background:#fff;color:var(--text)}
+.form-row input:focus,.form-row textarea:focus{border-color:var(--navy3);box-shadow:0 0 0 3px rgba(15,52,96,.08)}
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{padding:10px 20px;border-radius:9px;font-family:inherit;font-size:.9rem;font-weight:500;cursor:pointer;transition:all .18s;border:none}
+.btn-primary{background:var(--navy3);color:#fff;width:100%}
+.btn-primary:hover{background:#0d2a50}
+.btn-primary:disabled{background:#9aafbf;cursor:not-allowed}
+.btn-sm{padding:6px 14px;font-size:.82rem;background:var(--light);border:1px solid var(--border);color:var(--muted)}
+.btn-sm:hover{background:var(--border)}
+
+/* AI RESULT */
+.ai-panel{background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden}
+.ai-placeholder{padding:3rem 2rem;text-align:center;color:var(--muted)}
+.ai-placeholder .icon{font-size:3.5rem;margin-bottom:.8rem}
+.ai-result-header{padding:1.2rem 1.4rem;color:#fff;font-size:1rem;font-weight:600}
+.ai-result-body{padding:1.2rem 1.4rem}
+.ai-big-label{font-size:2.2rem;font-weight:700;line-height:1;margin-bottom:.3rem}
+.ai-desc{font-size:.87rem;color:var(--muted);line-height:1.6;margin-top:.8rem}
+.confidence-bar{height:8px;background:#e8edf2;border-radius:4px;overflow:hidden;margin:8px 0}
+.confidence-fill{height:100%;border-radius:4px;transition:width 1s ease}
+.detail-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.detail-row:last-child{border-bottom:none}
+.detail-key{color:var(--muted)}
+.detail-val{font-weight:500}
+
+/* ALERTS */
+.alert-success{background:#ecfdf5;border-left:4px solid var(--green);border-radius:8px;padding:.9rem 1.1rem;font-size:.87rem;margin-top:.8rem}
+.alert-warning{background:#fff8e1;border-left:4px solid var(--accent2);border-radius:8px;padding:.9rem 1.1rem;font-size:.87rem;margin-top:.8rem}
+.alert-info{background:#eff6ff;border-left:4px solid var(--navy3);border-radius:8px;padding:.9rem 1.1rem;font-size:.87rem;margin-top:.8rem}
+
+/* RECENT REPORTS */
+.report-item{background:#fff;border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center;transition:box-shadow .15s}
+.report-item:hover{box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.report-name{font-weight:500;font-size:.9rem}
+.report-meta{font-size:.8rem;color:var(--muted);margin-top:2px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:500;white-space:nowrap}
+.b-reported{background:#fff3cd;color:#856404}
+.b-assigned{background:#cce5ff;color:#004085}
+.b-rescued{background:#d4edda;color:#155724}
+.b-completed{background:#d1ecf1;color:#0c5460}
+.b-injured{background:#fde8e8;color:#9b1c1c}
+.b-sick{background:#fff3e0;color:#92400e}
+.b-healthy{background:#e8f5e9;color:#1b5e20}
+
+/* TRACKER */
+.tracker-stage{margin-bottom:1.4rem}
+.stage-header{display:flex;align-items:center;gap:10px;margin-bottom:.6rem}
+.tracker-card{background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:.5rem;overflow:hidden}
+.tracker-card-head{padding:.85rem 1rem;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:background .15s}
+.tracker-card-head:hover{background:var(--light)}
+.tracker-card-body{padding:.8rem 1rem 1rem;border-top:1px solid var(--border);display:none;font-size:.86rem}
+.tracker-card-body.open{display:block}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
+.info-item{padding:5px 0;border-bottom:1px solid #f0f4f8}
+.info-label{font-size:.75rem;color:var(--muted);margin-bottom:1px}
+.info-val{font-weight:500;font-size:.86rem}
+.update-form{margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border)}
+.update-form select,.update-form input{width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:7px;font-family:inherit;font-size:.84rem;margin-bottom:6px;outline:none}
+.update-form select:focus,.update-form input:focus{border-color:var(--navy3)}
+
+/* STATS */
+.chart-card{background:#fff;border-radius:12px;padding:1.2rem;border:1px solid var(--border);margin-bottom:1rem}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.82rem}
+.bar-label{width:100px;text-align:right;color:var(--muted);flex-shrink:0}
+.bar-track{flex:1;background:#f0f4f8;border-radius:4px;height:20px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;color:#fff;font-size:.72rem;font-weight:600;transition:width 1s ease}
+.data-table{width:100%;border-collapse:collapse;font-size:.83rem}
+.data-table th{padding:8px 10px;text-align:left;font-size:.75rem;color:var(--muted);font-weight:500;border-bottom:2px solid var(--border);background:#fafcff}
+.data-table td{padding:8px 10px;border-bottom:1px solid var(--border)}
+.data-table tr:hover td{background:#fafcff}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid #ddd;border-top:2px solid var(--navy3);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{background:rgba(255,255,255,.95);border-radius:12px;padding:2rem;text-align:center;font-size:.9rem;color:var(--muted)}
+
+/* LOCATION INPUT MAP */
+#loc-picker-map{height:220px;border-radius:10px;border:1px solid var(--border);margin-bottom:.5rem}
+.loc-info{font-size:.78rem;color:var(--muted);margin-bottom:.8rem;background:#f0f6ff;padding:6px 10px;border-radius:6px}
+
+/* CONDITION COLOR STRIPS */
+.strip-injured{border-left:4px solid var(--accent)}
+.strip-sick{border-left:4px solid var(--accent2)}
+.strip-healthy{border-left:4px solid var(--green)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div class="paw">🐾</div>
+    <div><h2>PawGuard</h2><p>Dog Rescue AI</p></div>
+  </div>
+  <div class="nav-item active" onclick="nav('dashboard',this)"><span class="nav-icon">🏠</span>Dashboard</div>
+  <div class="nav-item" onclick="nav('report',this)"><span class="nav-icon">📷</span>Report a Dog</div>
+  <div class="nav-item" onclick="nav('map',this)"><span class="nav-icon">🗺️</span>Live Map</div>
+  <div class="nav-item" onclick="nav('tracker',this)"><span class="nav-icon">📋</span>Rescue Tracker</div>
+  <div class="nav-item" onclick="nav('stats',this)"><span class="nav-icon">📊</span>Statistics</div>
+  <hr>
+  <div class="sidebar-section">Emergency Contacts</div>
+  <div class="contact-item"><b>Street Cause</b><br>040-1234-5678</div>
+  <div class="contact-item"><b>CUPA Hyderabad</b><br>080-2222-3333</div>
+  <div class="contact-item"><b>Blue Cross</b><br>044-2235-1001</div>
+  <div class="sidebar-footer">PawGuard v1.0 · Real Map + AI</div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+<div class="header">
+  <h1>🐾 PawGuard — Dog Rescue AI</h1>
+  <p>Real-time stray dog detection, interactive map tracking &amp; rescue coordination</p>
+</div>
+
+<!-- ═══════════ DASHBOARD ═══════════ -->
+<div id="page-dashboard" class="page active">
+  <div class="stats-grid">
+    <div class="stat-card blue"><div class="stat-icon">📌</div><div class="stat-num" id="s-total">4</div><div class="stat-lbl">Total Reports</div></div>
+    <div class="stat-card red"><div class="stat-icon">🚨</div><div class="stat-num" id="s-injured">2</div><div class="stat-lbl">Injured Dogs</div></div>
+    <div class="stat-card green"><div class="stat-icon">💚</div><div class="stat-num" id="s-rescued">2</div><div class="stat-lbl">Rescued</div></div>
+    <div class="stat-card orange"><div class="stat-icon">⏳</div><div class="stat-num" id="s-pending">1</div><div class="stat-lbl">Awaiting Response</div></div>
+  </div>
+  <div class="section-title">📍 Live Map</div>
+  <div id="map"></div>
+  <div class="alert-info" style="margin-top:.8rem">🗺️ This is a <b>real OpenStreetMap</b>. Pins show actual GPS coordinates of reported dogs. Click any pin for details.</div>
+  <div class="section-title" style="margin-top:1.2rem">🕐 Recent Reports</div>
+  <div id="recent-list"></div>
+</div>
+
+<!-- ═══════════ REPORT A DOG ═══════════ -->
+<div id="page-report" class="page">
+  <div class="section-title">📷 Report a Stray Dog</div>
+  <div class="form-grid">
+
+    <!-- LEFT: FORM -->
+    <div>
+      <!-- IMAGE UPLOAD -->
+      <div class="form-row">
+        <label>Upload Dog Photo *</label>
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" id="file-input" accept="image/*" onchange="handleFileUpload(event)">
+          <div class="upload-icon">📸</div>
+          <div class="upload-text">Drag & drop or click to upload</div>
+          <div class="upload-sub">JPG, PNG, WEBP — max 10MB</div>
+        </div>
+        <img id="preview-img" class="preview-img" style="display:none" alt="Preview">
+        <div id="upload-name" style="font-size:.78rem;color:var(--muted);margin-top:4px;display:none"></div>
+      </div>
+
+      <!-- LOCATION PICKER MAP -->
+      <div class="form-row">
+        <label>📍 Pick Location on Map <span style="font-size:.75rem;color:var(--muted)">(click map to set pin)</span></label>
+        <div id="loc-picker-map"></div>
+        <div class="loc-info" id="loc-info">Click on the map above to drop a pin at the dog's location.</div>
+      </div>
+
+      <div class="form-row"><label>Area / Landmark *</label><input type="text" id="loc-name" placeholder="e.g. Near Inorbit Mall, Madhapur"></div>
+      <div class="form-2col">
+        <div class="form-row"><label>Latitude</label><input type="number" id="lat-in" step="0.000001" placeholder="17.432600" readonly style="background:#f8fafc"></div>
+        <div class="form-row"><label>Longitude</label><input type="number" id="lon-in" step="0.000001" placeholder="78.407100" readonly style="background:#f8fafc"></div>
+      </div>
+      <div class="form-row"><label>Your Name</label><input type="text" id="rep-name" placeholder="Optional — helps volunteers contact you"></div>
+      <div class="form-row"><label>Phone Number</label><input type="text" id="rep-phone" placeholder="Optional"></div>
+      <div class="form-row"><label>Additional Notes</label><textarea id="rep-notes" rows="3" placeholder="Describe what you saw — injuries, behaviour, number of dogs..."></textarea></div>
+      <button class="btn btn-primary" id="submit-btn" onclick="submitReport()" disabled>🚨 Analyse with AI &amp; Submit Report</button>
+      <div id="submit-msg"></div>
+    </div>
+
+    <!-- RIGHT: AI RESULT -->
+    <div>
+      <div class="ai-panel" id="ai-panel">
+        <div class="ai-placeholder">
+          <div class="icon">🤖</div>
+          <div style="font-weight:500;color:var(--navy)">Upload a photo to start</div>
+          <div style="font-size:.82rem;margin-top:6px">The AI will analyse the dog's condition once you select an image</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ LIVE MAP ═══════════ -->
+<div id="page-map" class="page">
+  <div class="section-title">🗺️ Live Map — All Reported Dogs</div>
+  <div style="display:flex;gap:10px;margin-bottom:.8rem;flex-wrap:wrap;align-items:center">
+    <select id="map-filter-cond" onchange="renderFullMap()" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem;outline:none">
+      <option value="all">All Conditions</option>
+      <option value="Injured">Injured only</option>
+      <option value="Sick">Sick only</option>
+      <option value="Healthy">Healthy only</option>
+    </select>
+    <select id="map-filter-status" onchange="renderFullMap()" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem;outline:none">
+      <option value="all">All Statuses</option>
+      <option value="Reported">Reported</option>
+      <option value="Volunteer Assigned">Volunteer Assigned</option>
+      <option value="Rescued">Rescued</option>
+      <option value="Treatment Completed">Treatment Completed</option>
+    </select>
+    <div style="font-size:.84rem;color:var(--muted);margin-left:auto" id="map-count">Showing all reports</div>
+  </div>
+  <div id="map-full"></div>
+  <div class="alert-info" style="margin-top:.8rem">🌐 Real OpenStreetMap powered by Leaflet.js · <b>Red</b> = Injured · <b>Orange</b> = Sick · <b>Green</b> = Healthy · Click pins for details</div>
+</div>
+
+<!-- ═══════════ TRACKER ═══════════ -->
+<div id="page-tracker" class="page">
+  <div class="section-title">📋 Rescue Status Tracker</div>
+  <div id="tracker-content"></div>
+</div>
+
+<!-- ═══════════ STATISTICS ═══════════ -->
+<div id="page-stats" class="page">
+  <div class="section-title">📊 Rescue Statistics</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+    <div class="chart-card">
+      <div style="font-weight:500;margin-bottom:.9rem">Reports by Condition</div>
+      <div id="chart-condition"></div>
+    </div>
+    <div class="chart-card">
+      <div style="font-weight:500;margin-bottom:.9rem">Reports by Status</div>
+      <div id="chart-status"></div>
+    </div>
+    <div class="chart-card">
+      <div style="font-weight:500;margin-bottom:.9rem">Top Locations</div>
+      <div id="chart-location"></div>
+    </div>
+    <div class="chart-card">
+      <div style="font-weight:500;margin-bottom:.9rem">AI Confidence Scores</div>
+      <div id="chart-confidence"></div>
+    </div>
+  </div>
+  <div class="chart-card" style="margin-top:1rem">
+    <div style="font-weight:500;margin-bottom:.9rem;display:flex;justify-content:space-between;align-items:center">
+      All Reports
+      <button class="btn btn-sm" onclick="exportCSV()">⬇️ Export CSV</button>
+    </div>
+    <div style="overflow-x:auto"><table class="data-table" id="data-table"></table></div>
+  </div>
+</div>
+
+</div><!-- /content -->
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════
+// DATA STORE
+// ═══════════════════════════════════════════
+let reports = [
+  {id:'RPT001',ts:'2026-04-06 09:12',loc:'Jubilee Hills, Hyderabad',lat:17.4325,lon:78.4051,cond:'Injured',conf:91,breed:'Indian Pariah',rname:'Ravi Kumar',rphone:'9876543210',status:'Volunteer Assigned',volunteer:'Street Cause Team A',notes:'Limping on left leg'},
+  {id:'RPT002',ts:'2026-04-07 14:45',loc:'Banjara Hills, Hyderabad',lat:17.4156,lon:78.4483,cond:'Sick',conf:84,breed:'Mixed Breed',rname:'Priya S',rphone:'9845012345',status:'Rescued',volunteer:'Street Cause Team B',notes:'Mange infection suspected'},
+  {id:'RPT003',ts:'2026-04-07 18:30',loc:'Madhapur, Hyderabad',lat:17.4489,lon:78.3905,cond:'Healthy',conf:78,breed:'Labrador Mix',rname:'Anonymous',rphone:'',status:'Reported',volunteer:'',notes:'Friendly stray, no visible injury'},
+  {id:'RPT004',ts:'2026-04-08 08:00',loc:'Gachibowli, Hyderabad',lat:17.4401,lon:78.3489,cond:'Injured',conf:95,breed:'Indian Pariah',rname:'Sai T',rphone:'8801234567',status:'Treatment Completed',volunteer:'Dr. Meena Vet Clinic',notes:'Fracture treated successfully'},
+];
+
+// ═══════════════════════════════════════════
+// MAP INSTANCES
+// ═══════════════════════════════════════════
+let dashMap, fullMap, pickerMap, pickerMarker;
+let dashMarkers=[], fullMarkers=[];
+
+function pinColor(cond){return cond==='Injured'?'#e63946':cond==='Sick'?'#f4a261':'#2a9d8f'}
+function makeIcon(cond){
+  const c=pinColor(cond);
+  return L.divIcon({className:'',html:`<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.3 0 0 6.3 0 14c0 9.8 14 22 14 22S28 23.8 28 14C28 6.3 21.7 0 14 0z" fill="${c}"/><circle cx="14" cy="14" r="7" fill="white"/></svg>`,iconSize:[28,36],iconAnchor:[14,36],popupAnchor:[0,-38]});
+}
+
+function popupHtml(r){
+  const cc={Injured:'#e63946',Sick:'#f4a261',Healthy:'#2a9d8f'};
+  return `<div style="font-family:'DM Sans',sans-serif;min-width:200px;font-size:13px">
+    <div style="font-weight:600;font-size:14px;margin-bottom:6px">${r.loc}</div>
+    <div style="margin-bottom:4px">Condition: <b style="color:${cc[r.cond]}">${r.cond}</b> (${r.conf}% confidence)</div>
+    <div>Breed: ${r.breed}</div>
+    <div>Status: <b>${r.status}</b></div>
+    <div style="color:#888;font-size:11px;margin-top:4px">${r.ts}</div>
+    ${r.notes?`<div style="margin-top:6px;color:#555;font-style:italic">"${r.notes}"</div>`:''}
+  </div>`;
+}
+
+function initDashMap(){
+  if(dashMap) return;
+  dashMap = L.map('map').setView([17.43,78.41],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(dashMap);
+  renderDashPins();
+}
+
+function renderDashPins(){
+  dashMarkers.forEach(m=>dashMap.removeLayer(m));
+  dashMarkers=[];
+  reports.forEach(r=>{
+    const m=L.marker([r.lat,r.lon],{icon:makeIcon(r.cond)}).addTo(dashMap).bindPopup(popupHtml(r));
+    dashMarkers.push(m);
+  });
+}
+
+function initFullMap(){
+  if(fullMap) return;
+  fullMap = L.map('map-full').setView([17.43,78.41],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(fullMap);
+  renderFullMap();
+}
+
+function renderFullMap(){
+  if(!fullMap) return;
+  const fc=document.getElementById('map-filter-cond').value;
+  const fs=document.getElementById('map-filter-status').value;
+  fullMarkers.forEach(m=>fullMap.removeLayer(m));
+  fullMarkers=[];
+  const filtered=reports.filter(r=>(fc==='all'||r.cond===fc)&&(fs==='all'||r.status===fs));
+  document.getElementById('map-count').textContent=`Showing ${filtered.length} report${filtered.length!==1?'s':''}`;
+  filtered.forEach(r=>{
+    const m=L.marker([r.lat,r.lon],{icon:makeIcon(r.cond)}).addTo(fullMap).bindPopup(popupHtml(r));
+    fullMarkers.push(m);
+  });
+}
+
+function initPickerMap(){
+  if(pickerMap) return;
+  pickerMap = L.map('loc-picker-map').setView([17.43,78.41],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(pickerMap);
+  pickerMap.on('click',function(e){
+    const {lat,lng}=e.latlng;
+    document.getElementById('lat-in').value=lat.toFixed(6);
+    document.getElementById('lon-in').value=lng.toFixed(6);
+    document.getElementById('loc-info').textContent=`📍 Pin set at ${lat.toFixed(5)}, ${lng.toFixed(5)} — now enter the area name above.`;
+    if(pickerMarker) pickerMap.removeLayer(pickerMarker);
+    pickerMarker=L.marker([lat,lng]).addTo(pickerMap);
+    checkSubmitReady();
+  });
+  // Try geolocation
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(pos=>{
+      pickerMap.setView([pos.coords.latitude,pos.coords.longitude],14);
+    },()=>{});
+  }
+}
+
+// ═══════════════════════════════════════════
+// AI CLASSIFIER (real image analysis via canvas)
+// ═══════════════════════════════════════════
+let uploadedFile=null;
+
+function handleFileUpload(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  uploadedFile=file;
+  const url=URL.createObjectURL(file);
+  const img=document.getElementById('preview-img');
+  img.src=url;img.style.display='block';
+  document.getElementById('upload-zone').style.display='none';
+  document.getElementById('upload-name').style.display='block';
+  document.getElementById('upload-name').textContent='📁 '+file.name+' ('+Math.round(file.size/1024)+' KB)';
+  runAI(url,file);
+  checkSubmitReady();
+}
+
+function runAI(url,file){
+  const panel=document.getElementById('ai-panel');
+  panel.innerHTML=`<div class="loading-overlay"><span class="spinner"></span>Analysing image with AI...</div>`;
+  const img=new Image();
+  img.onload=function(){
+    const canvas=document.createElement('canvas');
+    canvas.width=img.width;canvas.height=img.height;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0);
+    const data=ctx.getImageData(0,0,img.width,img.height).data;
+    let r=0,g=0,b=0,n=data.length/4;
+    for(let i=0;i<data.length;i+=4){r+=data[i];g+=data[i+1];b+=data[i+2];}
+    r/=n;g/=n;b/=n;
+    const brightness=(r+g+b)/3;
+    const redRatio=r/(brightness+1);
+    const saturation=Math.max(r,g,b)-Math.min(r,g,b);
+    let cond,conf,desc,color,emoji;
+    if(redRatio>1.15&&saturation>30){
+      cond='Injured';conf=Math.min(96,Math.round(75+redRatio*8));
+      desc='Redness and high colour variance detected. Possible wounds, bleeding or skin irritation visible in the image.';
+      color='#e63946';emoji='🚨';
+    }else if(brightness<75||saturation<18){
+      cond='Sick';conf=Math.min(91,Math.round(65+(90-brightness)*0.35));
+      desc='Low brightness and low colour saturation detected. The dog may appear weak, lethargic or have dull coat — signs of illness or malnutrition.';
+      color='#f4a261';emoji='🤒';
+    }else{
+      cond='Healthy';conf=Math.min(93,Math.round(72+brightness*0.08));
+      desc='Normal colour distribution and brightness detected. No visible signs of injury or sickness in the image.';
+      color='#2a9d8f';emoji='✅';
+    }
+    const breeds=['Indian Pariah','Mixed Breed','Labrador Mix','Street Indie','Indian Spitz','Unknown Breed'];
+    const breed=breeds[Math.round(brightness)%breeds.length];
+    window._aiResult={cond,conf,desc,breed,color,emoji};
+    setTimeout(()=>{
+      panel.innerHTML=`
+      <div class="ai-result-header" style="background:${color}">${emoji} AI Detection Result</div>
+      <div class="ai-result-body">
+        <div class="ai-big-label" style="color:${color}">${cond}</div>
+        <div style="font-size:.82rem;color:var(--muted);margin-bottom:.6rem">Confidence</div>
+        <div class="confidence-bar"><div class="confidence-fill" style="width:${conf}%;background:${color}" id="conf-bar"></div></div>
+        <div style="font-size:.85rem;font-weight:500;margin-bottom:.8rem">${conf}%</div>
+        <div class="detail-row"><span class="detail-key">Breed estimate</span><span class="detail-val">${breed}</span></div>
+        <div class="detail-row"><span class="detail-key">Avg brightness</span><span class="detail-val">${Math.round(brightness)}/255</span></div>
+        <div class="detail-row"><span class="detail-key">Red ratio</span><span class="detail-val">${redRatio.toFixed(2)}</span></div>
+        <div class="detail-row"><span class="detail-key">Colour saturation</span><span class="detail-val">${Math.round(saturation)}</span></div>
+        <div class="ai-desc">${desc}</div>
+        <div class="alert-warning" style="margin-top:.8rem;font-size:.8rem">⚠️ This is a pixel-analysis model. For production, replace with a trained TensorFlow classifier.</div>
+      </div>`;
+    },900);
+  };
+  img.src=url;
+}
+
+// ═══════════════════════════════════════════
+// FORM SUBMIT
+// ═══════════════════════════════════════════
+function checkSubmitReady(){
+  const hasFile=!!uploadedFile;
+  const hasLoc=document.getElementById('lat-in').value!=='';
+  document.getElementById('submit-btn').disabled=!(hasFile&&hasLoc);
+}
+
+function submitReport(){
+  const locName=document.getElementById('loc-name').value||'Unknown Location';
+  const lat=parseFloat(document.getElementById('lat-in').value);
+  const lon=parseFloat(document.getElementById('lon-in').value);
+  if(!window._aiResult){alert('Please wait for AI analysis to complete.');return;}
+  const btn=document.getElementById('submit-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Submitting...';
+  setTimeout(()=>{
+    const newId='RPT'+String(reports.length+1).padStart(3,'0');
+    const now=new Date();
+    const ts=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    const report={
+      id:newId,ts,loc:locName,lat,lon,
+      cond:_aiResult.cond,conf:_aiResult.conf,breed:_aiResult.breed,
+      rname:document.getElementById('rep-name').value||'Anonymous',
+      rphone:document.getElementById('rep-phone').value,
+      status:'Reported',volunteer:'',
+      notes:document.getElementById('rep-notes').value
+    };
+    reports.push(report);
+    updateStats();
+    renderRecentList();
+    if(dashMap)renderDashPins();
+    if(fullMap)renderFullMap();
+    btn.innerHTML='✅ Submitted!';
+    document.getElementById('submit-msg').innerHTML=`
+    <div class="alert-success" style="margin-top:.8rem">
+      ✅ <b>Report saved!</b> ID: <code>${newId}</code><br>
+      📧 Alert sent to Street Cause volunteers (simulated).<br>
+      🗺️ Dog pinned on the live map — check the Map tab!
+    </div>`;
+    setTimeout(()=>{
+      btn.disabled=false;btn.innerHTML='🚨 Analyse with AI &amp; Submit Report';
+    },3000);
+  },1200);
+}
+
+// ═══════════════════════════════════════════
+// RECENT LIST
+// ═══════════════════════════════════════════
+function badgeClass(status){return{Reported:'b-reported','Volunteer Assigned':'b-assigned',Rescued:'b-rescued','Treatment Completed':'b-completed'}[status]||'b-reported'}
+function condBadge(c){return{Injured:'b-injured',Sick:'b-sick',Healthy:'b-healthy'}[c]||''}
+
+function renderRecentList(){
+  const el=document.getElementById('recent-list');
+  const sorted=[...reports].sort((a,b)=>b.ts.localeCompare(a.ts)).slice(0,6);
+  el.innerHTML=sorted.map(r=>`
+  <div class="report-item ${r.cond==='Injured'?'strip-injured':r.cond==='Sick'?'strip-sick':'strip-healthy'}">
+    <div>
+      <div class="report-name">${r.loc}</div>
+      <div class="report-meta">${r.ts} · <span class="badge ${condBadge(r.cond)}">${r.cond}</span> · ${r.breed}</div>
+    </div>
+    <span class="badge ${badgeClass(r.status)}">${r.status}</span>
+  </div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// TRACKER
+// ═══════════════════════════════════════════
+const stages=['Reported','Volunteer Assigned','Rescued','Treatment Completed'];
+
+function renderTracker(){
+  const el=document.getElementById('tracker-content');
+  el.innerHTML=stages.map(stage=>{
+    const group=reports.filter(r=>r.status===stage);
+    const bc=badgeClass(stage);
+    return`<div class="tracker-stage">
+      <div class="stage-header">
+        <span class="badge ${bc}" style="font-size:.84rem;padding:5px 14px">${stage}</span>
+        <span style="color:var(--muted);font-size:.8rem">${group.length} case${group.length!==1?'s':''}</span>
+      </div>
+      ${group.length===0?`<div style="color:var(--muted);font-size:.83rem;padding:.4rem 0">No cases at this stage.</div>`
+        :group.map(r=>`
+      <div class="tracker-card">
+        <div class="tracker-card-head" onclick="toggleCard('${r.id}')">
+          <div>
+            <span style="font-weight:500">${r.loc}</span>
+            <span style="margin-left:8px" class="badge ${condBadge(r.cond)}">${r.cond}</span>
+          </div>
+          <span style="color:var(--muted);font-size:.8rem">${r.id} ▾</span>
+        </div>
+        <div class="tracker-card-body" id="card-${r.id}">
+          <div class="info-grid">
+            <div class="info-item"><div class="info-label">Report ID</div><div class="info-val">${r.id}</div></div>
+            <div class="info-item"><div class="info-label">Time</div><div class="info-val">${r.ts}</div></div>
+            <div class="info-item"><div class="info-label">Condition</div><div class="info-val">${r.cond} (${r.conf}%)</div></div>
+            <div class="info-item"><div class="info-label">Breed</div><div class="info-val">${r.breed}</div></div>
+            <div class="info-item"><div class="info-label">Reporter</div><div class="info-val">${r.rname}</div></div>
+            <div class="info-item"><div class="info-label">Phone</div><div class="info-val">${r.rphone||'—'}</div></div>
+            <div class="info-item"><div class="info-label">Volunteer</div><div class="info-val">${r.volunteer||'—'}</div></div>
+            <div class="info-item"><div class="info-label">Notes</div><div class="info-val">${r.notes||'—'}</div></div>
+          </div>
+          <div class="update-form">
+            <div style="font-size:.82rem;font-weight:500;margin-bottom:.5rem">Update Status</div>
+            <select id="sel-${r.id}">${stages.map(s=>`<option value="${s}"${s===r.status?' selected':''}>${s}</option>`).join('')}</select>
+            <input type="text" id="vol-${r.id}" placeholder="Assign volunteer / organisation" value="${r.volunteer}">
+            <button class="btn btn-primary" style="width:auto;padding:7px 16px;font-size:.84rem" onclick="updateStatus('${r.id}')">💾 Save Update</button>
+          </div>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function toggleCard(id){
+  const el=document.getElementById('card-'+id);
+  el.classList.toggle('open');
+}
+
+function updateStatus(id){
+  const r=reports.find(x=>x.id===id);
+  if(!r)return;
+  r.status=document.getElementById('sel-'+id).value;
+  r.volunteer=document.getElementById('vol-'+id).value;
+  renderTracker();
+  updateStats();
+  renderRecentList();
+  if(dashMap)renderDashPins();
+  if(fullMap)renderFullMap();
+  // re-open card
+  setTimeout(()=>{
+    const el=document.getElementById('card-'+id);
+    if(el)el.classList.add('open');
+  },50);
+}
+
+// ═══════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════
+function renderStats(){
+  // Condition
+  const condCount={Injured:0,Sick:0,Healthy:0};
+  reports.forEach(r=>condCount[r.cond]=(condCount[r.cond]||0)+1);
+  const maxC=Math.max(...Object.values(condCount));
+  document.getElementById('chart-condition').innerHTML=Object.entries(condCount).map(([k,v])=>`
+  <div class="bar-row"><span class="bar-label">${k}</span>
+  <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/maxC*100)}%;background:${k==='Injured'?'#e63946':k==='Sick'?'#f4a261':'#2a9d8f'}">${v}</div></div></div>`).join('');
+  // Status
+  const stCount={};
+  reports.forEach(r=>stCount[r.status]=(stCount[r.status]||0)+1);
+  const maxS=Math.max(...Object.values(stCount));
+  const stColors={'Reported':'#f59e0b','Volunteer Assigned':'#3b82f6','Rescued':'#10b981','Treatment Completed':'#0891b2'};
+  document.getElementById('chart-status').innerHTML=Object.entries(stCount).map(([k,v])=>`
+  <div class="bar-row"><span class="bar-label" style="width:120px">${k}</span>
+  <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/maxS*100)}%;background:${stColors[k]||'#888'}">${v}</div></div></div>`).join('');
+  // Locations
+  const locCount={};
+  reports.forEach(r=>{const short=r.loc.split(',')[0];locCount[short]=(locCount[short]||0)+1;});
+  const maxL=Math.max(...Object.values(locCount));
+  document.getElementById('chart-location').innerHTML=Object.entries(locCount).map(([k,v])=>`
+  <div class="bar-row"><span class="bar-label">${k}</span>
+  <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/maxL*100)}%;background:#0f3460">${v}</div></div></div>`).join('');
+  // Confidence
+  const maxConf=Math.max(...reports.map(r=>r.conf));
+  document.getElementById('chart-confidence').innerHTML=reports.map(r=>`
+  <div class="bar-row"><span class="bar-label">${r.id}</span>
+  <div class="bar-track"><div class="bar-fill" style="width:${Math.round(r.conf/maxConf*100)}%;background:#7c3aed">${r.conf}%</div></div></div>`).join('');
+  // Table
+  const cols=['id','ts','loc','cond','conf','breed','status','volunteer'];
+  const head=cols.map(c=>`<th>${c}</th>`).join('');
+  const rows=reports.map(r=>`<tr>${cols.map(c=>`<td>${r[c]||''}</td>`).join('')}</tr>`).join('');
+  document.getElementById('data-table').innerHTML=`<thead><tr>${head}</tr></thead><tbody>${rows}</tbody>`;
+}
+
+function updateStats(){
+  const total=reports.length;
+  const injured=reports.filter(r=>r.cond==='Injured').length;
+  const rescued=reports.filter(r=>['Rescued','Treatment Completed'].includes(r.status)).length;
+  const pending=reports.filter(r=>r.status==='Reported').length;
+  document.getElementById('s-total').textContent=total;
+  document.getElementById('s-injured').textContent=injured;
+  document.getElementById('s-rescued').textContent=rescued;
+  document.getElementById('s-pending').textContent=pending;
+}
+
+function exportCSV(){
+  const cols=['id','ts','loc','lat','lon','cond','conf','breed','rname','rphone','status','volunteer','notes'];
+  const csv=[cols.join(','),...reports.map(r=>cols.map(c=>'"'+(r[c]||'')+'"').join(','))].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='pawguard_reports.csv';a.click();
+}
+
+// ═══════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════
+function nav(id, el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='dashboard'){setTimeout(()=>{initDashMap();renderRecentList();},100)}
+  if(id==='report'){setTimeout(()=>{initPickerMap();},100)}
+  if(id==='map'){setTimeout(()=>{initFullMap();renderFullMap();},100)}
+  if(id==='tracker'){renderTracker()}
+  if(id==='stats'){renderStats()}
+}
+
+// ═══════════════════════════════════════════
+// DRAG & DROP
+// ═══════════════════════════════════════════
+const zone=document.getElementById('upload-zone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('dragover')});
+zone.addEventListener('dragleave',()=>zone.classList.remove('dragover'));
+zone.addEventListener('drop',e=>{
+  e.preventDefault();zone.classList.remove('dragover');
+  const file=e.dataTransfer.files[0];
+  if(file&&file.type.startsWith('image/')){
+    const dt=new DataTransfer();dt.items.add(file);
+    document.getElementById('file-input').files=dt.files;
+    handleFileUpload({target:{files:[file]}});
+  }
+});
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+window.addEventListener('load',()=>{
+  updateStats();
+  renderRecentList();
+  setTimeout(()=>initDashMap(),200);
+});
+</script>
+</body>
+</html>
